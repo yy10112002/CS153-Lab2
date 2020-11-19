@@ -112,6 +112,9 @@ found:
   memset(p->context, 0, sizeof *p->context);
   p->context->eip = (uint)forkret;
 
+  p->priority = 10; // Default priority = 10
+  p->startTime = ticks; // Bonus, Turnaround time
+
   return p;
 }
 
@@ -197,6 +200,7 @@ fork(void)
     return -1;
   }
   np->sz = curproc->sz;
+  np->priority = curproc->priority;
   np->parent = curproc;
   *np->tf = *curproc->tf;
 
@@ -246,6 +250,9 @@ exit(void)
   iput(curproc->cwd);
   end_op();
   curproc->cwd = 0;
+
+  int endTime = ticks;                                                // Bonus, Turnaround time
+  cprintf(" Turnaround time: %d\n", endTime - curproc->startTime);    // Bonus, Turnaround time
 
   acquire(&ptable.lock);
 
@@ -319,6 +326,70 @@ wait(void)
 //  - swtch to start running that process
 //  - eventually that process transfers control
 //      via swtch back to the scheduler.
+int setPriority(int priority)
+{
+  struct proc *p = myproc();
+  p->priority = priority;
+  return 0;
+}
+
+int getPriority()
+{
+  struct proc *curproc = myproc();
+  return curproc->priority;
+}
+
+void scheduler(void)  // Lab2
+{
+  struct proc *p;
+  struct cpu *c = mycpu();
+  c->proc = 0;
+  
+  int lowestPriority;
+
+  for(;;)
+  {
+    // Enable interrupts on this processor.
+    sti();
+
+    lowestPriority = 255;
+    acquire(&ptable.lock);
+    // Find the lowest priority
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+    {
+      if(p->state == RUNNABLE && p->priority < lowestPriority)
+        lowestPriority = p->priority;
+    }
+
+    // Find the process with lowest priority
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+    {
+      if(p->state != RUNNABLE)
+      {
+        continue;
+      }
+      if(p->priority != lowestPriority) 
+      {
+        if(p->priority > 0)
+        {
+          p->priority--;  // Bonus, Avoid Starvation
+        }
+        continue;
+      }
+    c->proc = p;
+    switchuvm(p);
+    p->state = RUNNING;
+    p->priority++;        // Bonus, Avoid Starvation
+    swtch(&(c->scheduler), p->context);
+    switchkvm();
+    c->proc = 0;
+    }
+    release(&ptable.lock);
+  }
+}
+
+
+/*  // Original Scheduler
 void
 scheduler(void)
 {
@@ -354,6 +425,7 @@ scheduler(void)
 
   }
 }
+*/
 
 // Enter scheduler.  Must hold only ptable.lock
 // and have changed proc->state. Saves and restores
