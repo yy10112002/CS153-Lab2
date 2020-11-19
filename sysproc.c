@@ -97,7 +97,8 @@ int sys_setPriority(void)
   {
     return -1;
   }
-  return setPriority(priority);
+  setPriority(priority);
+  return 0;
 }
 
 int sys_getPriority(void)

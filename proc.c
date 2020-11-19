@@ -326,11 +326,10 @@ wait(void)
 //  - swtch to start running that process
 //  - eventually that process transfers control
 //      via swtch back to the scheduler.
-int setPriority(int priority)
+void setPriority(int priority)
 {
   struct proc *p = myproc();
   p->priority = priority;
-  return 0;
 }
 
 int getPriority()
