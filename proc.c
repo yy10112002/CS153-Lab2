@@ -200,7 +200,7 @@ fork(void)
     return -1;
   }
   np->sz = curproc->sz;
-  np->priority = curproc->priority;
+  np->priority = curproc->priority; // Inherit priority from parent
   np->parent = curproc;
   *np->tf = *curproc->tf;
 
@@ -354,7 +354,8 @@ void scheduler(void)  // Lab2
 
     lowestPriority = 255;
     acquire(&ptable.lock);
-    // Find the lowest priority
+
+    // Find the lowest priority with runnable status
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
     {
       if(p->state == RUNNABLE && p->priority < lowestPriority)

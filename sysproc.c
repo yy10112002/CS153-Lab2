@@ -93,7 +93,7 @@ sys_uptime(void)
 int sys_setPriority(void)
 {
   int priority;
-  if(argint(0, &priority) < 0)
+  if(argint(0, &priority) < 0 || argint(0, &priority) > 31) // Priority range 0 - 31
   {
     return -1;
   }
