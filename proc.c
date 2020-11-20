@@ -113,7 +113,7 @@ found:
   p->context->eip = (uint)forkret;
 
   p->priority = 10; // Default priority = 10
-  p->startTime = ticks; // Bonus, Turnaround time
+  // p->startTime = ticks; // Bonus, Turnaround time
 
   return p;
 }
@@ -129,6 +129,7 @@ userinit(void)
   p = allocproc();
   
   initproc = p;
+
   if((p->pgdir = setupkvm()) == 0)
     panic("userinit: out of memory?");
   inituvm(p->pgdir, _binary_initcode_start, (int)_binary_initcode_size);
@@ -251,8 +252,8 @@ exit(void)
   end_op();
   curproc->cwd = 0;
 
-  int endTime = ticks;                                                // Bonus, Turnaround time
-  cprintf(" Turnaround time: %d\n", endTime - curproc->startTime);    // Bonus, Turnaround time
+  // int endTime = ticks;                                                  // Bonus, Turnaround time
+  // cprintf(" Turnaround time: %d\n", endTime - curproc->startTime);    // Bonus, Turnaround time
 
   acquire(&ptable.lock);
 
@@ -344,45 +345,56 @@ void scheduler(void)  // Lab2
   struct cpu *c = mycpu();
   c->proc = 0;
   
-  int lowestPriority;
+  int smallestPriority;
 
   for(;;)
   {
     // Enable interrupts on this processor.
     sti();
 
-    lowestPriority = 255;
+    smallestPriority = 255;
     acquire(&ptable.lock);
 
-    // Find the lowest priority with runnable status
+    // Find the smallest priority with runnable status
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
     {
-      if(p->state == RUNNABLE && p->priority < lowestPriority)
-        lowestPriority = p->priority;
+      if(p->state == RUNNABLE && p->priority < smallestPriority)
+        smallestPriority = p->priority;
     }
 
-    // Find the process with lowest priority
+    // Find the process with lowest priority and switch to it.
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
     {
+      // If this is not runnable process, go to next loop.
       if(p->state != RUNNABLE)
       {
         continue;
       }
-      if(p->priority != lowestPriority) 
+
+      // If this is not the smallest priority, go to next loop.
+      if(p->priority != smallestPriority)
       {
         if(p->priority > 0)
         {
-          p->priority--;  // Bonus, Avoid Starvation
+          p->priority--;  // Aging of priority. If the process waits, increase its priority.
         }
         continue;
       }
-    c->proc = p;
-    switchuvm(p);
-    p->state = RUNNING;
-    p->priority++;        // Bonus, Avoid Starvation
-    swtch(&(c->scheduler), p->context);
-    switchkvm();
-    c->proc = 0;
+
+      // If this is the smallest priority process, switch to it.
+      if(p->priority == smallestPriority)
+      {
+        // p->startTime = ticks;
+        c->proc = p;
+        switchuvm(p);
+        p->state = RUNNING;
+        p->priority++;  // Aging of priority. If the process runs, decrease its priority.
+        swtch(&(c->scheduler), p->context);
+        switchkvm();
+
+        // Process done running.
+        c->proc = 0;
+      }
     }
     release(&ptable.lock);
   }
